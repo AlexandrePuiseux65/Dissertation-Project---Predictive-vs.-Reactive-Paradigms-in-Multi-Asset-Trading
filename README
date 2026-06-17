@@ -1,2 +1,19 @@
 MSc Artificial Intelligence at University of Saint Andrews :
 Masters Dissertation : Predictives vs Reactives Paradigms in Multi-Asset Trading
+
+
+Mini-Conda env : 
+
+```
+# Activate the env.
+conda activate trading
+
+# Install the requirement.txt.
+pip install -r requirements.txt
+
+# Save the requirements after adding a new library.
+pip freeze > config/requirements.txt
+
+```
+
+
