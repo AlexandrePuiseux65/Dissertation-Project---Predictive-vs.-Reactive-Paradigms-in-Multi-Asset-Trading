@@ -6,6 +6,9 @@ This file has for goal to fetch the data that the API from alpaca has to give.
 import os
 import pandas as pd
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
+import pyarrow as pa
+import pyarrow.parquet as pq
 from alpaca.data import CryptoHistoricalDataClient, StockHistoricalDataClient, OptionHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
@@ -60,14 +63,13 @@ class FetchData:
                     adjustment=Adjustment.ALL,
                     feed=DataFeed.IEX
                     )
-                print(request)
 
                 bars=self.client_stock.get_stock_bars(request)
                 df=bars.df.reset_index()
 
                 if not df.empty:
                     all_chunks.append(df)
-                    print(f"Added {len(df)} from {current.year} to dataframe.")
+                    print(f"Success: {ticker} {current.strftime('%Y-%m')} => {len(df)} rows")
 
                 current = chunk_end
 
@@ -76,66 +78,104 @@ class FetchData:
                 os.makedirs(FILE_PATH_STOCKS, exist_ok=True)
                 output_path=os.path.join(FILE_PATH_STOCKS, f"{ticker}.parquet")
                 final_df.to_parquet(output_path, index=False)
-                print(f"SUCCESS: {ticker} rows saved to file {output_path}.")
+                print(f"Success: {ticker} rows saved to file {output_path}.")
 
         except APIError as e:
-            print(f"ERROR API; 'FetchStocksHistorical': {e}.")
+            print(f"Error API; FetchStocksHistorical: {e}.")
         except Exception as e:
-            print(f"ERROR; 'FetchStocksHistorical': {e}.")
+            print(f"Error Exception; FetchStocksHistorical: {e}.")
 
     def FetchOptionsHistorical(self, options: str):
+        """
+            Same but with a different file folder.
+        """
         try:
             all_chunks = []
             current = START_DT
+
             while current < END_DT:
                 chunk_end = min(current.replace(year=current.year +1), END_DT)
 
-        except APIError as e:
-            print(f"ERROR API; 'FetchOptionsHistorical': {e}.")
-        except Exception as e:
-            print(f"ERROR; 'FetchOptionsHistorical': {e}.")
-
-    def FetchCryptosHistorical(self, name_crypto):
-        try:
-            all_chunks = []
-            current = START_DT
-            while current < END_DT:
-                chunk_end = min(current.replace(year=current.year +1), END_DT)
-
-                request=CryptoBarsRequest(
-                    symbol_or_symbols=name_crypto, 
+                request = StockBarsRequest(
+                    symbol_or_symbols=options,
                     timeframe=TIMEFRAME,
                     start=current,
                     end=chunk_end,
-                )
-                print(request)
-        
-                bars=self.client_crypto.get_crypto_bars(request)
+                    adjustment=Adjustment.ALL,
+                    feed=DataFeed.IEX
+                    )
+
+                bars=self.client_stock.get_stock_bars(request)
                 df=bars.df.reset_index()
 
                 if not df.empty:
                     all_chunks.append(df)
-                    print(f"Added {len(df)} from {current.year} to dataframe.")
+                    print(f"Success: {options} {current.strftime('%Y-%m')} => {len(df)} rows")
 
                 current = chunk_end
 
             if all_chunks:
                 final_df = pd.concat(all_chunks, ignore_index=True)
-                os.makedirs(FILE_PATH_CRYPTO, exist_ok=True)
-                output_path=os.path.join(FILE_PATH_CRYPTO, f"{name_crypto}.parquet")
+                os.makedirs(FILE_PATH_BONDS, exist_ok=True)
+                output_path=os.path.join(FILE_PATH_BONDS, f"{options}.parquet")
                 final_df.to_parquet(output_path, index=False)
-                print(f"SUCCESS: {name_crypto} rows saved to file {output_path}.")
+                print(f"Success: {options} rows saved to file {output_path}.")
 
         except APIError as e:
-            print(f"ERROR API; 'FetchCryptoHistorical': {e}.")
+            print(f"Error API; FetchStocksHistorical: {e}.")
         except Exception as e:
-            print(f"ERROR; 'FetchCryptoHistorical': {e}.")
+            print(f"Error Exception; FetchStocksHistorical: {e}.")
+
+    def FetchCryptosHistorical(self, name_crypto: str):
+        """
+            Function that fetch the crypto data, from 2015 to 2025. 
+            Create a .parquet file, with the following columns : 
+                - [timestamp, open, high, low, close, volume, trade_count, vwap], of size (848726, 9).
+        """
+        try:
+            convert_name_crypto = name_crypto.replace("/", "-")
+            os.makedirs(FILE_PATH_CRYPTO, exist_ok=True)
+            output_path = os.path.join(FILE_PATH_CRYPTO, f"{convert_name_crypto}.parquet")
+            current = START_DT
+            writer = None
+
+            while current < END_DT:
+                chunk_end = min(current + relativedelta(months=1), END_DT)
+
+                request = CryptoBarsRequest(
+                    symbol_or_symbols=name_crypto,
+                    timeframe=TIMEFRAME,
+                    start=current,
+                    end=chunk_end,
+                )
+
+                bars = self.client_crypto.get_crypto_bars(request)
+                df = bars.df.reset_index()
+
+                if not df.empty:
+                    table = pa.Table.from_pandas(df)
+                    if writer is None:
+                        writer = pq.ParquetWriter(output_path, table.schema)
+                    writer.write_table(table)
+                    print(f"Success: {name_crypto} {current.strftime('%Y-%m')} => {len(df)} rows")
+
+                current = chunk_end
+
+            if writer:
+                writer.close()
+                print(f"Success: {name_crypto} - done")
+
+        except APIError as e:
+            print(f"Error API; FetchCryptosHistorical: {e}.")
+        except Exception as e:
+            print(f"Error Exception; FetchCryptosHistorical: {e}.")
 
 if __name__ == "__main__":
     # test
     fetch=FetchData(KEY, SECRET)
-    #df_stocks = fetch.FetchStocksHistorical("AAPL")
+    df_stocks = fetch.FetchStocksHistorical("AAPL")
+    df_crypto = fetch.FetchCryptosHistorical("BTC/USD")
+    df_bonds = fetch.FetchOptionsHistorical("TLT")
     # verif
-    df = pd.read_parquet("data/raw/stocks/AAPL.parquet")
-    print(df.shape)
-    print(df.head())
+    # df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
+    # df = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
