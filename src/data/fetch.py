@@ -173,9 +173,11 @@ class FetchData:
 if __name__ == "__main__":
     # test
     fetch=FetchData(KEY, SECRET)
-    df_stocks = fetch.FetchStocksHistorical("AAPL")
-    df_crypto = fetch.FetchCryptosHistorical("BTC/USD")
-    df_bonds = fetch.FetchOptionsHistorical("TLT")
+    # df_stocks = fetch.FetchStocksHistorical("AAPL")
+    #df_crypto = fetch.FetchCryptosHistorical("BTC/USD")
+    # df_bonds = fetch.FetchOptionsHistorical("TLT")
     # verif
-    # df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
-    # df = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
+    df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
+    df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
+    print(df)
+    print(df_crypto)
