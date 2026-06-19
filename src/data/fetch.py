@@ -22,8 +22,8 @@ SECRET = os.getenv("API_ALPACA_SECRET")
 print(f"KEY: {KEY[:5] if KEY else 'None'}")
 print(f"SECRET: {SECRET[:5] if SECRET else 'None'}")
 
-START_DT = datetime.strptime("2025-01-01", "%Y-%m-%d")
-END_DT = datetime.strptime("2025-01-31", "%Y-%m-%d")
+START_DT = datetime.strptime("2015-01-01", "%Y-%m-%d")
+END_DT = datetime.strptime("2025-12-31", "%Y-%m-%d")
 TIMEFRAME = TimeFrame(3, TimeFrameUnit.Minute)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FILE_PATH_STOCKS = os.path.join(BASE_DIR, "data", "raw", "stocks")
@@ -50,7 +50,7 @@ class FetchData:
                 request = StockBarsRequest(
                     symbol_or_symbols=ticker,
                     timeframe=TIMEFRAME,
-                    start=START_DT,
+                    start=current,
                     end=chunk_end,
                     adjustment=Adjustment.ALL,
                     feed=DataFeed.IEX
