@@ -179,5 +179,5 @@ if __name__ == "__main__":
     # verif
     df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
     df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
-    print(df)
-    print(df_crypto)
+    print(df.columns)
+    print(df_crypto.columns)

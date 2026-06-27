@@ -101,10 +101,10 @@ if __name__ == "__main__":
     CalculateInputFeature(df_crypto, 14, os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
 
     # Test
-    df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
-    df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
-    df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS, "TLT.parquet"))
-    print(df)
-    print(df_crypto)
-    print(df_bonds)
+    # df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
+    # df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
+    # df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS, "TLT.parquet"))
+    #print(df)
+    #print(df_crypto)
+    #print(df_bonds)
     
