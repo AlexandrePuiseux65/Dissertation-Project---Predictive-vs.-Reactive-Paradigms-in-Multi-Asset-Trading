@@ -9,7 +9,7 @@ Mini-Conda env :
 conda activate trading
 
 # Install the requirement.txt.
-pip install -r requirements.txt
+pip install -r config/requirements.txt
 
 # Save the requirements after adding a new library.
 pip freeze > config/requirements.txt
