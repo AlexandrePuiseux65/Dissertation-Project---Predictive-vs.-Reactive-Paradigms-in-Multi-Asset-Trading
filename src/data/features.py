@@ -87,7 +87,7 @@ def CalculateInputFeature(df, n, output_path):
 
     # Save in the file.
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    df.to_parquet(output_path, index=True)
+    df.reset_index().to_parquet(output_path, index=False)
     print(f"Success: {output_path} - done")
 
 if __name__ == "__main__":
@@ -95,15 +95,15 @@ if __name__ == "__main__":
     df_crypto = TemporalSerie(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
     df_bond  = TemporalSerie(os.path.join(FILE_PATH_BONDS, "TLT.parquet"))
 
-    # Calculate the feature.
+    # Compute the feature.
     CalculateInputFeature(df, 14, os.path.join(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet"))
-    CalculateInputFeature(df_bond, 14, os.path.join(FILE_PATH_BONDS, "TLT.parquet"))
-    CalculateInputFeature(df_crypto, 14, os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
+    CalculateInputFeature(df_bond, 14, os.path.join(FILE_PATH_BONDS_PROCESSED, "TLT.parquet"))
+    CalculateInputFeature(df_crypto, 14, os.path.join(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet"))
 
     # Test
-    # df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
-    # df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
-    # df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS, "TLT.parquet"))
+    # df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet"))
+    #df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet"))
+    #df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS_PROCESSED, "TLT.parquet"))
     #print(df)
     #print(df_crypto)
     #print(df_bonds)

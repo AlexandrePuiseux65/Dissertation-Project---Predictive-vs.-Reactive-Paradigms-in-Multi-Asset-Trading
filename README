@@ -17,3 +17,10 @@ pip freeze > config/requirements.txt
 ```
 
 
+```
+ # Remove the login:~ and launching the env
+ srun -p gpu-l4-n2 -q gpu-l4-n2 --gpus 1 --pty bash
+conda activate trading
+python src/data/fetch.py
+```
+

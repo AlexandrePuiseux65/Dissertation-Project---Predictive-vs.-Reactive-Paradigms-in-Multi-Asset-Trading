@@ -27,6 +27,9 @@ print(f"SECRET: {SECRET[:5] if SECRET else 'None'}")
 
 START_DT = datetime.strptime("2015-01-01", "%Y-%m-%d")
 END_DT = datetime.strptime("2025-12-31", "%Y-%m-%d")
+START_DT_STOCKS = datetime.strptime("2015-01-01", "%Y-%m-%d")
+END_DT_STOCKS = datetime.strptime("2025-12-31", "%Y-%m-%d")
+
 TIMEFRAME = TimeFrame(3, TimeFrameUnit.Minute)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FILE_PATH_STOCKS = os.path.join(BASE_DIR, "data", "raw", "stocks")
@@ -46,7 +49,10 @@ class FetchData:
         """
             Function that fetch the stocks data, from 2015 to 2025. 
             Create a .parquet file, with the following columns : 
-                - [timestamp, open, high, low, close, volume, trade_count, vwap], of size (180337, 9).
+                - [timestamp, open, high, low, close, volume, trade_count, vwap],
+                of size Stocks; 1623033, 
+                Crypto; 7638534, 
+                Bonds; 1583703.
         """
         try:
             all_chunks = []
@@ -171,13 +177,15 @@ class FetchData:
             print(f"Error Exception; FetchCryptosHistorical: {e}.")
 
 if __name__ == "__main__":
-    # test
     fetch=FetchData(KEY, SECRET)
-    # df_stocks = fetch.FetchStocksHistorical("AAPL")
-    #df_crypto = fetch.FetchCryptosHistorical("BTC/USD")
-    # df_bonds = fetch.FetchOptionsHistorical("TLT")
+    df_stocks = fetch.FetchStocksHistorical("AAPL")
+    df_crypto = fetch.FetchCryptosHistorical("BTC/USD")
+    df_bonds = fetch.FetchOptionsHistorical("TLT")
+    
     # verif
     df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
     df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
-    print(df.columns)
-    print(df_crypto.columns)
+    df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS, "TLT.parquet"))
+    print(f"Stocks; {df.size}",df.columns)
+    print(f"Crypto; {df_crypto.size}",df_crypto.columns)
+    print(f"Bonds; {df_bonds.size}",df_bonds.columns)
