@@ -21,7 +21,7 @@ FEATURE_COLS = ['open', 'high', 'low', 'close', 'volume', 'trade_count',
     Class that produce the model LSTM, depending on the input size, the hidden layer size
     and the output size.
 '''
-class MyLSTM_V1(nn.Module):
+class MyLSTM(nn.Module):
     def __init__(self, input_size, hidden_layer_size, output_size):
         super().__init__()
         self.hidden_layer_size = hidden_layer_size
@@ -68,23 +68,53 @@ def PreparationData(link, file_name):
 
     return train_data_normalized, val_data_normalized, test_data_normalized, train_target, val_target, test_target
 
+'''
+    Define a early stopping for the LSTM model, depending on the prediction.
+'''
+def EarlyStopping(loss_function):
+    pass
 
+'''
+
+'''
+def CreateInOutSequence(features, targets, seq_len):
+    sequences = []
+    for i in range(len(features) - seq_len):
+        seq   = features[i:i + seq_len]# (seq_len, 13) — features
+        label = targets[i + seq_len]# scalaire — log-return suivant
+        sequences.append((seq, label))
+    return sequences
+
+'''
+    main code
+'''
 if __name__ == "__main__":
     train_stocks, val_stocks, test_stocks, train_y_stocks, val_y_stocks, test_y_stocks= PreparationData(FILE_PATH_STOCKS_PROCESSED, file_name="AAPL.parquet")
     train_bonds, verif_bonds, test_bonds, train_y_bonds, val_y_bonds, test_y_bonds = PreparationData(FILE_PATH_BONDS_PROCESSED, file_name="TLT.parquet")
     train_crypto, verif_crypto, test_crypto, train_y_crypto, val_y_crypto, test_y_crypto = PreparationData(FILE_PATH_CRYPTO_PROCESSED, file_name="BTC-USD.parquet")
 
-    # Train the model.
-    model_v1 = MyLSTM_V1()
-    loss_function = nn.MSELoss() # A changer MSE/MAE pour pertes dirrectionnelles ou voir comment on mets
-    optimiser = torch.optim.Adam(model_v1.parameters, lr=0.001)
-    epochs = 50
-
-
+    # Train the model v1.
     try:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model_v1 = MyLSTM(input_size=14, hidden_layer_size=64, output_size=1).to(device) #14 for the 'types' of asset columns too
+        loss_function = nn.MSELoss() # A changer MSE/MAE pour pertes dirrectionnelles ou voir comment on mets
+        optimiser = torch.optim.Adam(model_v1.parameters, lr=0.001)
+        epochs = 50
+
+        all_train = (
+            CreateInOutSequence(train_stocks, train_y_stocks, 24) +
+            CreateInOutSequence(train_bonds,  train_y_bonds,  24) +
+            CreateInOutSequence(train_crypto, train_y_crypto, 24)
+        )
+
         for epoch in range(epochs):
-            pass
-        # model = MonLSTM().to(device)
-        # X_train = X_train.to(device)
+            model_v1.train()
+            for seq, label in all_train:
+                optimiser.zero_grad()
+                y_pred = model_v1(seq.unsqueeze(1).to(device))
+                loss = loss_function(y_pred.squeeze(), label.to(device))
+                loss.backward()
+                optimiser.step()
+        
     except Exception as e:
         print(f"Error GPU detection: {e}")
