@@ -9,7 +9,6 @@ import os
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FILE_PATH_STOCKS_PROCESSED = os.path.join(BASE_DIR, "data", "processed", "stocks")
 FILE_PATH_CRYPTO_PROCESSED = os.path.join(BASE_DIR, "data", "processed", "crypto")
@@ -71,9 +70,9 @@ def PreparationData(link, file_name):
 
 
 if __name__ == "__main__":
-    train_stocks, verif_stocks, test_stocks = PreparationData(FILE_PATH_STOCKS_PROCESSED, file_name="AAPL.parquet")
-    train_donds, verif_donds, test_donds = PreparationData(FILE_PATH_BONDS_PROCESSED, file_name="TLT.parquet")
-    train_crypto, verif_crypto, test_crypto = PreparationData(FILE_PATH_CRYPTO_PROCESSED, file_name="BTC-USD.parquet")
+    train_stocks, val_stocks, test_stocks, train_y_stocks, val_y_stocks, test_y_stocks= PreparationData(FILE_PATH_STOCKS_PROCESSED, file_name="AAPL.parquet")
+    train_bonds, verif_bonds, test_bonds, train_y_bonds, val_y_bonds, test_y_bonds = PreparationData(FILE_PATH_BONDS_PROCESSED, file_name="TLT.parquet")
+    train_crypto, verif_crypto, test_crypto, train_y_crypto, val_y_crypto, test_y_crypto = PreparationData(FILE_PATH_CRYPTO_PROCESSED, file_name="BTC-USD.parquet")
 
     # Train the model.
     model_v1 = MyLSTM_V1()
