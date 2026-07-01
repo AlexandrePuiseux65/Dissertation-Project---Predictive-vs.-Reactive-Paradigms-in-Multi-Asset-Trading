@@ -91,6 +91,7 @@ def CalculateInputFeature(df, n, output_path):
     print(f"Success: {output_path} - done")
 
 if __name__ == "__main__":
+    # Get raw data.
     df = TemporalSerie(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
     df_crypto = TemporalSerie(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
     df_bond  = TemporalSerie(os.path.join(FILE_PATH_BONDS, "TLT.parquet"))
@@ -100,11 +101,15 @@ if __name__ == "__main__":
     CalculateInputFeature(df_bond, 14, os.path.join(FILE_PATH_BONDS_PROCESSED, "TLT.parquet"))
     CalculateInputFeature(df_crypto, 14, os.path.join(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet"))
 
-    # Test
-    #df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet"))
-    #df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet"))
-    #df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS_PROCESSED, "TLT.parquet"))
-    #print(df.columns)
-    #print(df_crypto.columns)
-    #print(df_bonds.columns)
+    # Verification of the data and add the type of assets (for the trainning in multi-asset).
+    df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet"))
+    df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet"))
+    df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS_PROCESSED, "TLT.parquet"))
+    df['types'] = 0
+    df_crypto['types'] = 1
+    df_bonds['types'] = 2
+
+    print(f"Stocks; {df.size}",df.columns)
+    print(f"Crypto; {df_crypto.size}",df_crypto.columns)
+    print(f"Bonds; {df_bonds.size}",df_bonds.columns)
     

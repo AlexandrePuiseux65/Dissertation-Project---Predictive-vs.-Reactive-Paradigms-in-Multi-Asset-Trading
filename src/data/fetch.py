@@ -177,12 +177,13 @@ class FetchData:
             print(f"Error Exception; FetchCryptosHistorical: {e}.")
 
 if __name__ == "__main__":
+    # Fetch the data.
     fetch=FetchData(KEY, SECRET)
     df_stocks = fetch.FetchStocksHistorical("AAPL")
     df_crypto = fetch.FetchCryptosHistorical("BTC/USD")
     df_bonds = fetch.FetchOptionsHistorical("TLT")
-    
-    # verif
+
+    # Verification of the data
     df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS, "AAPL.parquet"))
     df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO, "BTC-USD.parquet"))
     df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS, "TLT.parquet"))

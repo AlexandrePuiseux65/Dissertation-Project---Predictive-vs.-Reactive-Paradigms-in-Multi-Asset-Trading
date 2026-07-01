@@ -32,7 +32,7 @@ class MyLSTM_V1(nn.Module):
         return predictions
 
 if __name__ == "__main__":
-    # get data.
+    # Get the data and build the sequences separatly per asset.
     df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet"))
     df_crypto = pd.read_parquet(os.path.join(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet"))
     df_bonds = pd.read_parquet(os.path.join(FILE_PATH_BONDS_PROCESSED, "TLT.parquet"))
@@ -41,10 +41,6 @@ if __name__ == "__main__":
     df['target']= np.log(df['close'].shift(-1)/df['close'])
     df_bonds['target']= np.log(df_bonds['close'].shift(-1)/df_bonds['close'])
     df_crypto['target']= np.log(df_crypto['close'].shift(-1)/df_crypto['close'])
-
-    df['types'] = 0
-    df_bonds['types'] = 1
-    df_crypto['types'] = 2
 
     # Separating the data
     df = df.sort_values('timestamp').reset_index(drop=True)
