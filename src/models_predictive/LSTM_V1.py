@@ -10,6 +10,7 @@ import os
 import numpy as np
 import copy
 from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
 
 # --- Global Variable --- #
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,10 +20,11 @@ FILE_PATH_BONDS_PROCESSED  = os.path.join(BASE_DIR, "data", "processed", "bonds"
 
 FILE_SAVE_MODEL = os.path.join(BASE_DIR, "model")
 
-FEATURE_COLS = ['open', 'high', 'low', 'close', 'volume', 'trade_count',
-                'vwap', 'EMA', 'HMA', 'EVWMA', 'ROC', 'RSI', 'Williams_R']
+FEATURE_COLS =  ['open', 'high', 'low', 'close', 'volume', 'trade_count',
+       'vwap', 'SMA_20', 'SMA_50', 'RSI', 'MACD', 'MACD_signal', 'MACD_hist',
+       'BB_middle', 'BB_upper', 'BB_lower']
 
-# --- Class --- # 
+# --- Class --- #
 '''
     Class that produce the model LSTM, depending on the input size, the hidden layer size
     and the output size.
@@ -46,45 +48,54 @@ class MyLSTM(nn.Module):
     Train the LSTM model, with early stopping, in order to not overfeed the model.
     Base and modify on ths code "https://codesignal.com/learn/courses/time-series-forecasting-with-lstms-2/lessons/optimizing-lstm-models-for-time-series-forecasting-with-pytorch"
 '''
-def TrainModel(model, train_loader, val_loader, loss_function, optimiser, device, epochs, patience):
+def TrainModel(model, model_name ,train_loader, val_loader, loss_function, optimiser, device, epochs, patience):
     best_loss = np.inf
     patience_c = 0
-    best_model_wts = copy.deepcopy(model.state_dict()) 
+    best_model_wts = copy.deepcopy(model.state_dict())
+    train_losses = []
+    val_losses   = []
 
     for epoch in range(epochs):
+        # Training
         model.train()
+        train_loss = 0
         for seq, label in train_loader:
             optimiser.zero_grad()
             y_pred = model(seq.to(device))
             loss = loss_function(y_pred.squeeze(), label.to(device))
             loss.backward()
             optimiser.step()
-        
+            train_loss += loss.item()
+        train_losses.append(train_loss / len(train_loader))
+
+        # Validation
         model.eval()
         val_loss = 0
         with torch.no_grad():
             for seq, label in val_loader:
-                y_pred = model(seq.to(device)) 
-                loss = loss_function(y_pred.squeeze(), label.to(device)) 
+                y_pred = model(seq.to(device))
+                loss = loss_function(y_pred.squeeze(), label.to(device))
                 val_loss += loss.item()
+        val_loss /= len(val_loader)
+        val_losses.append(val_loss)
 
-        val_loss /=len(val_loader)
-        print(f'Epoch {epoch+1} -> V-Loss: {val_loss}')
+        print(f'Epoch {epoch+1} -> T-Loss: {train_losses[-1]:.6f} | V-Loss: {val_loss:.6f}')
 
         if val_loss < best_loss:
             best_loss = val_loss
             patience_c = 0
-            best_model_wts = model.state_dict()
+            best_model_wts = copy.deepcopy(model.state_dict())
         else:
             patience_c += 1
 
         if patience_c >= patience:
-            print(f"Early Stopping at {epoch}")
+            print(f"Early Stopping at epoch {epoch+1}")
             break
 
     model.load_state_dict(best_model_wts)
-    torch.save(model.state_dict(), os.path.join(FILE_SAVE_MODEL, "lstm_v1.pth"))
+    torch.save(model.state_dict(), os.path.join(FILE_SAVE_MODEL, f"{model_name}.pth"))
     print(f"Model saved -> best val_loss: {best_loss:.6f}")
+    return train_losses, val_losses
 
 '''
     Loads and prepares a processed parquet file for LSTM training.
@@ -96,7 +107,7 @@ def PreparationData(link, file_name):
     df = pd.read_parquet(os.path.join(link, file_name))
 
     df['target'] = np.log(df['close'].shift(-1) / df['close'])
-    df = df.dropna(subset=['target'])
+    df = df.dropna()
 
     n = len(df)
     train_end = int(n * 0.75)
@@ -115,9 +126,9 @@ def PreparationData(link, file_name):
     val_data_normalized = torch.FloatTensor(val_scaled)
     test_data_normalized = torch.FloatTensor(test_scaled)
 
-    train_target = torch.FloatTensor(train_df['target'].values)
-    val_target   = torch.FloatTensor(val_df['target'].values)
-    test_target  = torch.FloatTensor(test_df['target'].values)
+    train_target = torch.FloatTensor(train_df['target'].values.copy())
+    val_target   = torch.FloatTensor(val_df['target'].values.copy())
+    test_target  = torch.FloatTensor(test_df['target'].values.copy())
 
     return train_data_normalized, val_data_normalized, test_data_normalized, train_target, val_target, test_target
     
@@ -174,9 +185,21 @@ if __name__ == "__main__":
 
     # Trainning information
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model_v1 = MyLSTM(input_size=14, hidden_layer_size=64, output_size=1).to(device)
+    model_v1 = MyLSTM(input_size=17, hidden_layer_size=32, output_size=1).to(device)
     loss_function = nn.MSELoss() # A changer MSE/MAE pour pertes dirrectionnelles ou voir comment on mets
-    optimiser = torch.optim.Adam(model_v1.parameters(), lr=0.001)  
+    optimiser = torch.optim.Adam(model_v1.parameters(), lr=0.0005)
+    model_name='lstm_v1'
     
     # Trainning of the model
-    TrainModel(model_v1, train_loader, val_loader, loss_function, optimiser, device, epochs=50, patience=3)
+    train_loss, val_loss = TrainModel(model_v1, model_name, train_loader, val_loader, loss_function, optimiser, device, epochs=100, patience=10)
+
+    # Visualisation of the progress :
+    plt.figure(figsize=(12, 6))
+    plt.plot(train_loss, label='Train Loss')
+    plt.plot(val_loss,   label='Val Loss')
+    plt.title('Model Loss Over Epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(os.path.join(FILE_SAVE_MODEL, "loss_curve.png"))

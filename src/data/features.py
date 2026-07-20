@@ -57,35 +57,33 @@ def evwma(df, n):
             result[t] = (df['volume'].iloc[t] * df['close'].iloc[t] + (cap - df['volume'].iloc[t]) * result[t-1]) / cap
     return pd.Series(result, index=df['close'].index)
 
-def CalculateInputFeature(df, n, output_path):
-    # EMA 
-    df['EMA'] = df['close'].ewm(span=n, adjust=False).mean() 
+def CalculateInputFeature(df, output_path):
+    # SMA 20 and 50 periods
+    df['SMA_20'] = df['close'].rolling(window=20).mean()
+    df['SMA_50'] = df['close'].rolling(window=50).mean()
 
-    # HMA
-    half  = wma(df['close'], n // 2)
-    full  = wma(df['close'], n)
-    raw   = 2 * half - full
-    df['HMA'] = wma(raw, int(n ** 0.5))
-
-    #EVWMA
-    df['EVWMA'] = evwma(df, n)
-
-    # ROC
-    df['ROC'] = df['close'].pct_change(periods=n) * 100
-
-    # RSI
+    # RSI (14 periods)
     delta = df['close'].diff()
-    gain= delta.where(delta > 0, 0).rolling(window=n).mean() # See if we hardcode 14 in it.
-    loss= -delta.where(delta < 0, 0).rolling(window=n).mean()
-    rs = gain/loss
-    df['RSI']=100-(100/(1+rs))
+    gain  = delta.where(delta > 0, 0).rolling(window=14).mean()
+    loss  = -delta.where(delta < 0, 0).rolling(window=14).mean()
+    rs    = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
 
-    # William%R
-    highest_high = df['high'].rolling(n).max()
-    lowest_low   = df['low'].rolling(n).min()
-    df['Williams_R'] = ((highest_high - df['close']) / (highest_high - lowest_low)) * -100
+    # MACD (12, 26, 9)
+    ema_12       = df['close'].ewm(span=12, adjust=False).mean()
+    ema_26       = df['close'].ewm(span=26, adjust=False).mean()
+    df['MACD']   = ema_12 - ema_26
+    df['MACD_signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    df['MACD_hist']   = df['MACD'] - df['MACD_signal']
 
-    # Save in the file.
+    # Bollinger Bands (20 periods, 2 std)
+    sma_20          = df['close'].rolling(window=20).mean()
+    std_20          = df['close'].rolling(window=20).std()
+    df['BB_middle'] = sma_20
+    df['BB_upper']  = sma_20 + 2 * std_20
+    df['BB_lower']  = sma_20 - 2 * std_20
+
+    # Save
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df.reset_index().to_parquet(output_path, index=False)
     print(f"Success: {output_path} - done")
@@ -97,9 +95,9 @@ if __name__ == "__main__":
     df_bond  = TemporalSerie(os.path.join(FILE_PATH_BONDS, "TLT.parquet"))
 
     # Compute the feature.
-    CalculateInputFeature(df, 14, os.path.join(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet"))
-    CalculateInputFeature(df_bond, 14, os.path.join(FILE_PATH_BONDS_PROCESSED, "TLT.parquet"))
-    CalculateInputFeature(df_crypto, 14, os.path.join(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet"))
+    CalculateInputFeature(df, os.path.join(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet"))
+    CalculateInputFeature(df_bond, os.path.join(FILE_PATH_BONDS_PROCESSED, "TLT.parquet"))
+    CalculateInputFeature(df_crypto, os.path.join(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet"))
 
     # Verification of the data and add the type of assets (for the trainning in multi-asset).
     df = pd.read_parquet(os.path.join(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet"))
