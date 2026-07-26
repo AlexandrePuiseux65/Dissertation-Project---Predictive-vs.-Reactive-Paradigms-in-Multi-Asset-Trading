@@ -38,7 +38,7 @@ def evaluation_DRL_Action(portfolio_returns, market_returns, actions):
 def plot_training_evolution(model_dir):
     data = np.load(os.path.join(model_dir, "evaluations.npz"))
     timesteps = data["timesteps"]
-    rewards   = data["results"].mean(axis=1)
+    rewards = data["results"].mean(axis=1)
 
     plt.figure(figsize=(10, 4))
     plt.plot(timesteps, rewards)
@@ -50,6 +50,18 @@ def plot_training_evolution(model_dir):
     plt.savefig(os.path.join(model_dir, "training_evolution.png"))
     plt.show()
 
+def max_drawdown(returns):
+    cumulative = np.cumsum(returns)
+    running_max= np.maximum.accumulate(cumulative)
+    drawdown = cumulative - running_max
+    return drawdown.min()
+
+def sortino_ratio(returns, target=0.0):
+    excess = returns - target
+    downside = np.where(excess < 0, excess, 0)
+    downside_std = np.sqrt(np.mean(downside**2)) + 1e-8
+    return excess.mean()/downside_std
+
 # --- Main --- # 
 if __name__ == "__main__":
     train_stocks, val_stocks, test_stocks = PreparationData(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet", asset_type=0)
@@ -59,7 +71,7 @@ if __name__ == "__main__":
     test_all = pd.concat([test_stocks, test_bonds, test_crypto]).reset_index(drop=True)
     env = TradingEnv(test_all)
 
-    model = PPO.load(os.path.join(FILE_SAVE_MODEL, "best_model"), env=env, device='cpu')
+    model = PPO.load(os.path.join(FILE_SAVE_MODEL, "drl_v1_1M.zip"), env=env, device='cpu')
 
     obs, _ = env.reset()
     env.current_step = 24
@@ -96,9 +108,24 @@ if __name__ == "__main__":
     evaluation_DRL_Action(portfolio_returns, market_returns, actions)
     plot_training_evolution(FILE_SAVE_MODEL)
 
-    rewards = np.array(rewards)
-    net_returns = np.array(net_returns)
-    print(f"Cumulative reward : {rewards.sum():.4f}")
-    print(f"Cumulative return (with 10bps) : {net_returns.sum():.4f}")
-    print(f"Mean reward : {rewards.mean():.6f}")
-    print(f"Sharpe ratio : {rewards.mean() / (rewards.std() + 1e-8):.4f}")
+    portfolio_returns = np.array(portfolio_returns)
+    net_returns       = np.array(net_returns)
+    market_returns    = np.array(market_returns)
+
+    print(f"\n--- Without costs ---")
+    print(f"Cumulative return  : {portfolio_returns.sum():.4f}")
+    print(f"Sharpe ratio       : {portfolio_returns.mean() / (portfolio_returns.std() + 1e-8):.4f}")
+    print(f"Sortino ratio      : {sortino_ratio(portfolio_returns):.4f}")
+    print(f"Max Drawdown       : {max_drawdown(portfolio_returns):.4f}")
+
+    print(f"\n--- With 10 bps ---")
+    print(f"Cumulative return  : {net_returns.sum():.4f}")
+    print(f"Sharpe ratio       : {net_returns.mean() / (net_returns.std() + 1e-8):.4f}")
+    print(f"Sortino ratio      : {sortino_ratio(net_returns):.4f}")
+    print(f"Max Drawdown       : {max_drawdown(net_returns):.4f}")
+
+    print(f"\n--- Buy & Hold ---")
+    print(f"Cumulative return  : {market_returns.sum():.4f}")
+    print(f"Sharpe ratio       : {market_returns.mean() / (market_returns.std() + 1e-8):.4f}")
+    print(f"Sortino ratio      : {sortino_ratio(market_returns):.4f}")
+    print(f"Max Drawdown       : {max_drawdown(market_returns):.4f}")
