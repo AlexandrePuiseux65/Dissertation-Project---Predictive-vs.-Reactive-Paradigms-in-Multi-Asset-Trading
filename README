@@ -9,11 +9,18 @@ Mini-Conda env :
 conda activate trading
 
 # Install the requirement.txt.
-pip install -r requirements.txt
+pip install -r config/requirements.txt
 
 # Save the requirements after adding a new library.
 pip freeze > config/requirements.txt
 
 ```
 
+
+```
+ # Remove the login:~ and launching the env
+ srun -p gpu-l4-n2 -q gpu-l4-n2 --gpus 1 --pty bash
+conda activate trading
+python src/data/fetch.py
+```
 
