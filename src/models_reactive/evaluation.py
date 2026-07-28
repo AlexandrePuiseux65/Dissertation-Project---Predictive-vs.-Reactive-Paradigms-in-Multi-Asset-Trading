@@ -64,26 +64,28 @@ def sortino_ratio(returns, target=0.0):
 
 # --- Main --- # 
 if __name__ == "__main__":
+    # Prepartion of the data
     train_stocks, val_stocks, test_stocks = PreparationData(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet", asset_type=0)
-    train_bonds,  val_bonds,  test_bonds  = PreparationData(FILE_PATH_BONDS_PROCESSED,  "TLT.parquet",  asset_type=1)
+    train_bonds, val_bonds, test_bonds  = PreparationData(FILE_PATH_BONDS_PROCESSED,  "TLT.parquet",  asset_type=1)
     train_crypto, val_crypto, test_crypto = PreparationData(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet", asset_type=2)
 
     test_all = pd.concat([test_stocks, test_bonds, test_crypto]).reset_index(drop=True)
     env = TradingEnv(test_all)
 
+    # Load the DRL models
     model = PPO.load(os.path.join(FILE_SAVE_MODEL, "drl_v1_1M.zip"), env=env, device='cpu')
 
+    # add!
     obs, _ = env.reset()
     env.current_step = 24
-
     rewards = []
     actions = []
     portfolio_returns = []
     market_returns = []
     net_returns = []
-
     prev_action = 0.0
     done = False
+
     while not done:
         action, _ = model.predict(obs, deterministic=True)
         
