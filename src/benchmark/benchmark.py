@@ -50,14 +50,19 @@ def ComputeNetReturns(returns, actions, cost_rate=0.001):
 
 # --- Graphs ---#
 def cumulative_return(strategies):
-    plt.figure(figsize=(12,8))
-    for name, (gross, net) in strategies.items():
-        plt.plot(np.cumsum(gross), label=f"{name} (gross)")
-        plt.plot(np.cumsum(net), label=f"{name} (10bps)", linestyle='--', alpha=0.6)
+    plt.figure(figsize=(12, 8))
+    colors = plt.cm.tab10.colors
+
+    for i, (name, (gross, net)) in enumerate(strategies.items()):
+        color = colors[i]
+        plt.plot(np.cumsum(gross), label=f"{name} (gross)", color=color, linestyle='-')
+        plt.plot(np.cumsum(net), label=f"{name} (10bps)", color=color, linestyle='--', alpha=0.6)
+
     plt.title("Cumulative Returns (Gross vs Net of Costs)")
+    plt.xlabel("Time steps") #(hourly, concatenated: AAPL + TLT + BTC-USD)
+    plt.ylabel("Cumulative log-return") #(sum, not %)
     plt.legend(fontsize=8)
     plt.axhline(0, color='black', linewidth=0.5)
-    plt.grid()
     plt.savefig(os.path.join(FILE_SAVE_IMG, "cumulative_returns.png"))
     plt.close()
     print("Graph printed -> 'Cumulative Returns'")
@@ -68,7 +73,6 @@ def sharpe_graph(strategies, names):
     plt.bar(names, sharpe, color='steelblue')
     plt.title("Sharpe Ratio")
     plt.axhline(0, color='black', linewidth=0.5)
-    plt.grid()
     plt.savefig(os.path.join(FILE_SAVE_IMG, "sharpe.png"))
     plt.close()
     print("Graph printed -> 'Sharpe Ratio'")
@@ -79,7 +83,6 @@ def sortino_graph(strategies, names):
     plt.bar(names, sortino, color='seagreen')
     plt.title("Sortino Ratio")
     plt.axhline(0, color='black', linewidth=0.5)
-    plt.grid()
     plt.savefig(os.path.join(FILE_SAVE_IMG, "sortino.png"))
     plt.close()
     print("Graph printed -> 'Sortino Ratio'")
@@ -89,7 +92,6 @@ def max_drawdown_graph(strategies, names):
     plt.figure(figsize=(10, 6))
     plt.bar(names, mdd, color='tomato')
     plt.title("Max Drawdown")
-    plt.grid()
     plt.savefig(os.path.join(FILE_SAVE_IMG, "max_drawdown.png"))
     plt.close()
     print("Graph printed -> 'Max Drawdown'")
