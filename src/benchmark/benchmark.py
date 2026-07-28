@@ -28,6 +28,7 @@ SHOCK_WINDOWS = [
     (1500, 50, "TLT"),
     (3500, 50, "BTC"),
 ]
+SHOCK_MAGNITUDE = 0.05
 
 # --- Metrics --- #
 def Sharpe(returns):
@@ -232,17 +233,29 @@ def GraphAndMetric_shock(shock_strategies, shock_windows):
     with open(os.path.join(FILE_SAVE_TLB, "shock_test_results.txt"), "w") as f:
         f.write(shock_output)
 
-    plt.figure(figsize=(12, 8))
+    # --- Graph: split DRL vs LSTM --- #
+    fig, axes = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+
     for name, (gross, _, _) in shock_strategies.items():
-        plt.plot(np.cumsum(gross), label=name)
+        if name.startswith('DRL'):
+            axes[0].plot(np.cumsum(gross), label=name)
+        elif name.startswith('LSTM'):
+            axes[1].plot(np.cumsum(gross), label=name)
+
     for start, duration, asset_name in shock_windows:
-        plt.axvspan(start, start + duration, color='red', alpha=0.15)
-    plt.title("Volatility Shock Test (adversarial, multi-window)")
-    plt.xlabel("Time steps")
-    plt.ylabel("Cumulative log-return")
-    plt.legend(fontsize=8)
-    plt.axhline(0, color='black', linewidth=0.5)
-    plt.savefig(os.path.join(FILE_SAVE_IMG, "shock_test.png"))
+        axes[0].axvspan(start, start + duration, color='red', alpha=0.15)
+        axes[1].axvspan(start, start + duration, color='red', alpha=0.15)
+
+    axes[0].set_title("DRL: Clean vs Adversarial Shocks")
+    axes[1].set_title("LSTM: Clean vs Adversarial Shocks")
+    for ax in axes:
+        ax.legend(fontsize=8)
+        ax.axhline(0, color='black', linewidth=0.5)
+        ax.set_ylabel("Cumulative log-return")
+    axes[1].set_xlabel("Time steps")
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(FILE_SAVE_IMG, "shock_test-separated.png"))
     plt.close()
     print("Shock test complete.")
 
@@ -360,9 +373,9 @@ if __name__ == "__main__":
     GraphAndMetric_noisy(stress_strategies)
 
     # --- Volatility Shock Test (multi-window and adversarial) --- #
-    drl_shock_results  = run_shock_test(drl_actions, drl_market, SHOCK_WINDOWS, magnitude=abs(SHOCK_VALUE))
-    lstm_shock_results = run_shock_test(lstm_actions, test_labels.numpy(), SHOCK_WINDOWS, magnitude=abs(SHOCK_VALUE))
-
+    drl_shock_results  = run_shock_test(drl_actions, drl_market, SHOCK_WINDOWS, magnitude=SHOCK_MAGNITUDE)
+    lstm_shock_results = run_shock_test(lstm_actions, test_labels.numpy(), SHOCK_WINDOWS, magnitude=SHOCK_MAGNITUDE)
+    
     shock_strategies = {
         'DRL (clean)':  (drl_portfolio, drl_net, drl_actions),
         'LSTM (clean)': (lstm_portfolio, lstm_net, lstm_actions),
