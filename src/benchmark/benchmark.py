@@ -19,6 +19,7 @@ from models_predictive.evaluate import LoadModel as LoadLSTM, PrepareTestData as
 from models_predictive.evaluate import max_drawdown, sortino_ratio
 
 FILE_SAVE_IMG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img")
+FILE_SAVE_TLB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlb")
 
 # --- Metrics --- #
 def Sharpe(returns):
@@ -50,10 +51,11 @@ def ComputeNetReturns(returns, actions, cost_rate=0.001):
 # --- Graphs ---#
 def cumulative_return(strategies):
     plt.figure(figsize=(12,8))
-    for name, (gross, _) in strategies.items():
-        plt.plot(np.cumsum(gross), label=name)
-    plt.title("Cumulative Returns")
-    plt.legend()
+    for name, (gross, net) in strategies.items():
+        plt.plot(np.cumsum(gross), label=f"{name} (gross)")
+        plt.plot(np.cumsum(net), label=f"{name} (10bps)", linestyle='--', alpha=0.6)
+    plt.title("Cumulative Returns (Gross vs Net of Costs)")
+    plt.legend(fontsize=8)
     plt.axhline(0, color='black', linewidth=0.5)
     plt.grid()
     plt.savefig(os.path.join(FILE_SAVE_IMG, "cumulative_returns.png"))
@@ -92,23 +94,24 @@ def max_drawdown_graph(strategies, names):
     plt.close()
     print("Graph printed -> 'Max Drawdown'")
 
-def GraphAndMetric():
-    # --- Metrics --- #
-    strategies = {
-        'DRL': (drl_portfolio, drl_net),
-        'LSTM': (lstm_portfolio, lstm_net),
-        'Momentum': (momentum_portfolio, momentum_net),
-        'Random': (random_portfolio, random_net),
-        'Buy&Hold': (drl_market, drl_market),
-    }
+def GraphAndMetric(strategies):
+    lines = []
+    header = f"{'Strategy':<12} {'Return':>8} {'Return(10bps)':>14} {'Sharpe':>8} {'Sortino':>8} {'MaxDD':>8}"
+    lines.append(header)
+    lines.append("-" * 65)
 
-    print(f"\n{'Strategy':<12} {'Return':>8} {'Return(bps)':>12} {'Sharpe':>8} {'Sortino':>8} {'MaxDD':>8}")
-    print("-" * 60)
     for name, (gross, net) in strategies.items():
-        print(f"{name:<12} {CumulativeReturn(gross):>8.4f} {CumulativeReturn(net):>12.4f} "
-              f"{Sharpe(gross):>8.4f} {Sortino(gross):>8.4f} {MaxDrawdown(gross):>8.4f}")
+        line = (f"{name:<12} {CumulativeReturn(gross):>8.4f} {CumulativeReturn(net):>14.4f} "
+                f"{Sharpe(gross):>8.4f} {Sortino(gross):>8.4f} {MaxDrawdown(gross):>8.4f}")
+        lines.append(line)
 
-    names  = list(strategies.keys())
+    output = "\n".join(lines)
+    print(f"\n{output}")
+
+    with open(os.path.join(FILE_SAVE_TLB, "benchmark_results.txt"), "w") as f:
+        f.write(output)
+
+    names = list(strategies.keys())
 
     # --- Graphs --- #
     cumulative_return(strategies)
@@ -185,5 +188,14 @@ if __name__ == "__main__":
     momentum_actions = np.array(momentum_actions)
     momentum_portfolio = momentum_actions * drl_market
     momentum_net = ComputeNetReturns(momentum_portfolio, momentum_actions)
+    
+    # --- Graphs & Metrics --- #
+    strategies = {
+        'DRL': (drl_portfolio, drl_net),
+        'LSTM': (lstm_portfolio, lstm_net),
+        'Momentum': (momentum_portfolio, momentum_net),
+        'Random': (random_portfolio, random_net),
+        'Buy&Hold': (drl_market, drl_market),
+    }
 
-    GraphAndMetric()
+    GraphAndMetric(strategies)
