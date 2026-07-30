@@ -1,26 +1,18 @@
 '''
-    Code for the LSTM v2 model, also have the class fro the tranning of any LSTM model types.
+    Code for the LSTM v2 model, also have the class for the training of any LSTM model types.
+
+    # Experimental / not used in the current dissertation results
 '''
 # --- Lib --- #
-import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import os
-import numpy as np
-import copy
-from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
-from LSTM_V1 import MyLSTM, PreparationData, CreateInOutSequence, TrainModel
-from LSTM_V1 import FILE_PATH_STOCKS_PROCESSED, FILE_PATH_BONDS_PROCESSED, FILE_PATH_CRYPTO_PROCESSED, FILE_SAVE_MODEL, BASE_DIR
+from LSTM_V1 import MyLSTM, PreparationData, CreateInOutSequence, TrainModel, ProgressVisualisations
+from LSTM_V1 import FILE_PATH_STOCKS_PROCESSED, FILE_PATH_BONDS_PROCESSED, FILE_PATH_CRYPTO_PROCESSED
 
 # --- Global Variable --- #
-FILE_SAVE_MODEL = os.path.join(BASE_DIR, "model")
-
-FEATURE_COLS = ['open', 'high', 'low', 'close', 'volume', 'trade_count',
-                'vwap', 'EMA', 'HMA', 'EVWMA', 'ROC', 'RSI', 'Williams_R']
-
-# --- Function --- #
+SEQ_LEN = 48
 
 # --- Main --- # 
 if __name__ == "__main__":
@@ -37,17 +29,17 @@ if __name__ == "__main__":
     val_bonds  = torch.cat([val_bonds,  torch.full((len(val_bonds),  1), 1.0)], dim=1)
     val_crypto = torch.cat([val_crypto, torch.full((len(val_crypto), 1), 2.0)], dim=1)
 
-    # Build sliding window sequences of length 24h for each asset (same for validation set)
+    # Build sliding window sequences of length 48h for each asset (same for validation set)
     all_train = (
-        CreateInOutSequence(train_stocks, train_y_stocks, 48) +
-        CreateInOutSequence(train_bonds,  train_y_bonds,  48) +
-        CreateInOutSequence(train_crypto, train_y_crypto, 48)
+        CreateInOutSequence(train_stocks, train_y_stocks, SEQ_LEN) +
+        CreateInOutSequence(train_bonds,  train_y_bonds, SEQ_LEN) +
+        CreateInOutSequence(train_crypto, train_y_crypto, SEQ_LEN)
     )
 
     all_val = (
-        CreateInOutSequence(val_stocks, val_y_stocks, 48) +
-        CreateInOutSequence(val_bonds,  val_y_bonds,  48) +
-        CreateInOutSequence(val_crypto, val_y_crypto, 48)
+        CreateInOutSequence(val_stocks, val_y_stocks, SEQ_LEN) +
+        CreateInOutSequence(val_bonds,  val_y_bonds, SEQ_LEN) +
+        CreateInOutSequence(val_crypto, val_y_crypto, SEQ_LEN)
     )
 
     # Stack sequences into tensors for DataLoader
@@ -60,25 +52,16 @@ if __name__ == "__main__":
     train_loader = DataLoader(TensorDataset(train_seqs, train_labels), batch_size=32, shuffle=False)
     val_loader   = DataLoader(TensorDataset(val_seqs,   val_labels),   batch_size=32, shuffle=False)  
 
-    # Trainning information
+    # Training information
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model_v2 = MyLSTM(input_size=14, hidden_layer_size=64, output_size=1).to(device)
-    loss_function = nn.MSELoss() # A changer MSE/MAE pour pertes dirrectionnelles ou voir comment on mets
+    model_v2 = MyLSTM(input_size=17, hidden_layer_size=64, output_size=1).to(device)
+    loss_function = nn.MSELoss()
     optimiser = torch.optim.Adam(model_v2.parameters(), lr=0.0005)  
     model_name = "lstm_v2"
     
-    # Trainning of the model
+    # Training of the model
     train_loss, val_loss = TrainModel(model_v2, model_name, train_loader, val_loader, loss_function, optimiser, device, epochs=100, patience=10)
 
     # Visualisation of the progress :
-    plt.figure(figsize=(12, 6))
-    plt.plot(train_loss, label='Train Loss')
-    plt.plot(val_loss,   label='Val Loss')
-    plt.title('Model Loss Over Epochs')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(os.path.join(FILE_SAVE_MODEL, "loss_curve.png"))
-
+    ProgressVisualisations(train_loss, val_loss)
     

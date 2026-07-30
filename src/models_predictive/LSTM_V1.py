@@ -1,5 +1,5 @@
 '''
-    Code for the LSTM v1 model, also have the class fro the tranning of any LSTM model types.
+    Code for the LSTM v1 model, also have the class for the traning of any LSTM model types.
 '''
 # --- Lib --- #
 import pandas as pd
@@ -20,16 +20,17 @@ FILE_PATH_BONDS_PROCESSED  = os.path.join(BASE_DIR, "data", "processed", "bonds"
 
 FILE_SAVE_MODEL = os.path.join(BASE_DIR, "model")
 
+SEQ_LEN = 24
 FEATURE_COLS =  ['open', 'high', 'low', 'close', 'volume', 'trade_count',
        'vwap', 'SMA_20', 'SMA_50', 'RSI', 'MACD', 'MACD_signal', 'MACD_hist',
        'BB_middle', 'BB_upper', 'BB_lower']
 
 # --- Class --- #
-'''
-    Class that produce the model LSTM, depending on the input size, the hidden layer size
-    and the output size.
-'''
 class MyLSTM(nn.Module):
+    '''
+        Class that produce the model LSTM, depending on the input size, the hidden layer size
+        and the output size.
+    '''
     def __init__(self, input_size, hidden_layer_size, output_size):
         super().__init__()
         self.hidden_layer_size = hidden_layer_size
@@ -44,11 +45,11 @@ class MyLSTM(nn.Module):
         return predictions
 
 # --- Functions --- # 
-'''
-    Train the LSTM model, with early stopping, in order to not overfeed the model.
-    Base and modify on ths code "https://codesignal.com/learn/courses/time-series-forecasting-with-lstms-2/lessons/optimizing-lstm-models-for-time-series-forecasting-with-pytorch"
-'''
 def TrainModel(model, model_name ,train_loader, val_loader, loss_function, optimiser, device, epochs, patience):
+    '''
+        Train the LSTM model, with early stopping, in order to not overfeed the model.
+        Base and modify on ths code "https://codesignal.com/learn/courses/time-series-forecasting-with-lstms-2/lessons/optimizing-lstm-models-for-time-series-forecasting-with-pytorch"
+    '''
     best_loss = np.inf
     patience_c = 0
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -97,13 +98,13 @@ def TrainModel(model, model_name ,train_loader, val_loader, loss_function, optim
     print(f"Model saved -> best val_loss: {best_loss:.6f}")
     return train_losses, val_losses
 
-'''
-    Loads and prepares a processed parquet file for LSTM training.
-    Computes the log-return target, splits chronologically (75/15/10),
-    normalizes features using StandardScaler fitted on train only,
-    and returns tensors for features and targets.
-'''
 def PreparationData(link, file_name):
+    '''
+        Loads and prepares a processed parquet file for LSTM training.
+        Computes the log-return target, splits chronologically (75/15/10),
+        normalizes features using StandardScaler fitted on train only,
+        and returns tensors for features and targets.
+    '''
     df = pd.read_parquet(os.path.join(link, file_name))
 
     df['target'] = np.log(df['close'].shift(-1) / df['close'])
@@ -132,18 +133,32 @@ def PreparationData(link, file_name):
 
     return train_data_normalized, val_data_normalized, test_data_normalized, train_target, val_target, test_target
     
-'''
-    Builds sliding window sequences from features and targets.
-    Each sequence is a window of seq_len timesteps (features) paired
-    with the log-return at the next timestep (label).
-'''
 def CreateInOutSequence(features, targets, seq_len):
+    '''
+        Builds sliding window sequences from features and targets.
+        Each sequence is a window of seq_len timesteps (features) paired
+        with the log-return at the next timestep (label).
+    '''
     sequences = []
     for i in range(len(features) - seq_len):
-        seq   = features[i:i + seq_len]# (seq_len, 13) — features
-        label = targets[i + seq_len]# scalaire — log-return suivant
+        seq   = features[i:i + seq_len] # shape: (seq_len, n_features)
+        label = targets[i + seq_len] # scalar — next log-return (prediction target)
         sequences.append((seq, label))
     return sequences
+
+def ProgressVisualisations(train_loss, val_loss):
+    '''
+        Plot and save the training and validation loss curves over epochs.
+    '''
+    plt.figure(figsize=(12, 6))
+    plt.plot(train_loss, label='Train Loss')
+    plt.plot(val_loss, label='Val Loss')
+    plt.title('Model Loss Over Epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(os.path.join(FILE_SAVE_MODEL, "loss_curve.png"))
 
 # --- Main --- # 
 if __name__ == "__main__":
@@ -162,44 +177,36 @@ if __name__ == "__main__":
 
     # Build sliding window sequences of length 24h for each asset (same for validation set)
     all_train = (
-        CreateInOutSequence(train_stocks, train_y_stocks, 24) +
-        CreateInOutSequence(train_bonds,  train_y_bonds,  24) +
-        CreateInOutSequence(train_crypto, train_y_crypto, 24)
+        CreateInOutSequence(train_stocks, train_y_stocks, SEQ_LEN) +
+        CreateInOutSequence(train_bonds,  train_y_bonds, SEQ_LEN) +
+        CreateInOutSequence(train_crypto, train_y_crypto, SEQ_LEN)
     )
 
     all_val = (
-        CreateInOutSequence(val_stocks, val_y_stocks, 24) +
-        CreateInOutSequence(val_bonds,  val_y_bonds,  24) +
-        CreateInOutSequence(val_crypto, val_y_crypto, 24)
+        CreateInOutSequence(val_stocks, val_y_stocks, SEQ_LEN) +
+        CreateInOutSequence(val_bonds,  val_y_bonds, SEQ_LEN) +
+        CreateInOutSequence(val_crypto, val_y_crypto, SEQ_LEN)
     )
 
     # Stack sequences into tensors for DataLoader
-    train_seqs   = torch.stack([s for s, _ in all_train])
+    train_seqs = torch.stack([s for s, _ in all_train])
     train_labels = torch.stack([l for _, l in all_train])
-    val_seqs     = torch.stack([s for s, _ in all_val])
-    val_labels   = torch.stack([l for _, l in all_val])
+    val_seqs = torch.stack([s for s, _ in all_val])
+    val_labels = torch.stack([l for _, l in all_val])
 
     # Wrap in DataLoader for mini-batch training (batch_size=32)
     train_loader = DataLoader(TensorDataset(train_seqs, train_labels), batch_size=32, shuffle=False)
-    val_loader   = DataLoader(TensorDataset(val_seqs,   val_labels),   batch_size=32, shuffle=False)  
+    val_loader = DataLoader(TensorDataset(val_seqs,   val_labels),   batch_size=32, shuffle=False)  
 
-    # Trainning information
+    # Training information
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_v1 = MyLSTM(input_size=17, hidden_layer_size=32, output_size=1).to(device)
-    loss_function = nn.MSELoss() # A changer MSE/MAE pour pertes dirrectionnelles ou voir comment on mets
+    loss_function = nn.MSELoss()
     optimiser = torch.optim.Adam(model_v1.parameters(), lr=0.0005)
     model_name='lstm_v1'
     
-    # Trainning of the model
+    # Training of the model
     train_loss, val_loss = TrainModel(model_v1, model_name, train_loader, val_loader, loss_function, optimiser, device, epochs=100, patience=10)
 
     # Visualisation of the progress :
-    plt.figure(figsize=(12, 6))
-    plt.plot(train_loss, label='Train Loss')
-    plt.plot(val_loss,   label='Val Loss')
-    plt.title('Model Loss Over Epochs')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(os.path.join(FILE_SAVE_MODEL, "loss_curve.png"))
+    ProgressVisualisations(train_loss, val_loss)
