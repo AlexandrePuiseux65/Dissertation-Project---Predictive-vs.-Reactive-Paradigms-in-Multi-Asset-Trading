@@ -1,3 +1,10 @@
+'''
+    Benchmark and stress-testing suite comparing the DRL and LSTM trading
+    models against baseline strategies (Buy & Hold, Random, Momentum),
+    including robustness tests under feature noise and adversarial
+    volatility shocks.
+'''
+
 # --- Lib --- #
 import numpy as np
 import os
@@ -16,12 +23,12 @@ from models_reactive.DRL import PreparationData as PrepDRL, TradingEnv, FILE_SAV
 from models_reactive.DRL import FILE_PATH_STOCKS_PROCESSED, FILE_PATH_BONDS_PROCESSED, FILE_PATH_CRYPTO_PROCESSED
 
 from models_predictive.evaluate import LoadModel as LoadLSTM, PrepareTestData as PrepLSTM
-from models_predictive.evaluate import max_drawdown, sortino_ratio
 
 FILE_SAVE_IMG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img")
 FILE_SAVE_TLB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlb")
 
-NOISE_STD = 10 #Realy big
+# High magnitude noise (to produce a visible effect)
+NOISE_STD = 10
 
 SHOCK_WINDOWS = [
     (500, 50, "AAPL"),
@@ -32,23 +39,47 @@ SHOCK_MAGNITUDE = 0.05
 
 # --- Metrics --- #
 def Sharpe(returns):
+    '''
+        Compute the Sharpe ratio:
+            - risk-adjusted return, calculated as the mean return divided
+              by its standard deviation (assumes a risk-free rate of 0).
+    '''
     return returns.mean() / (returns.std() + 1e-8)
 
 def Sortino(returns, target=0.0):
+    '''
+        Compute the Sortino ratio:
+            - risk-adjusted return metric that measures performance
+              relative to downside volatility only (ignores upside variance).
+    '''
     excess = returns - target
     downside = np.where(excess < 0, excess, 0)
     downside_std = np.sqrt(np.mean(downside**2)) + 1e-8
     return excess.mean() / downside_std
 
 def MaxDrawdown(returns):
+    '''
+        Compute the Maximum Drawdown (MDD):
+            - the largest drop in cumulative log-return from a running
+              peak to a subsequent trough, before a new high is reached.
+    '''
     cumulative = np.cumsum(returns)
     running_max = np.maximum.accumulate(cumulative)
     return (cumulative - running_max).min()
 
 def CumulativeReturn(returns):
+    '''
+        Compute the total cumulative log-return over the full period.
+    '''
     return np.sum(returns)
 
 def ComputeNetReturns(returns, actions, cost_rate=0.001):
+    '''
+        Compute returns net of transaction costs:
+            - a cost proportional to the change in position size is
+              subtracted at each step (cost_rate expressed in decimal form,
+              e.g. 0.001 = 10 basis points).
+    '''
     net = []
     prev = 0.0
     for i, act in enumerate(actions):
@@ -58,11 +89,20 @@ def ComputeNetReturns(returns, actions, cost_rate=0.001):
     return np.array(net)
 
 def Turnover(actions):
+    '''
+        Compute the turnover of the trading strategy:
+            - the average absolute change in position between consecutive
+              steps, used as a proxy for trading frequency/stability.
+    '''
     actions = np.array(actions)
     return np.abs(np.diff(actions)).mean()
 
 # --- Graphs ---#
 def cumulative_return(strategies):
+    '''
+        Plot and save the cumulative return over time for each strategy,
+        showing both gross returns and returns net of transaction costs.
+    '''
     plt.figure(figsize=(12, 8))
     colors = plt.cm.tab10.colors
 
@@ -81,6 +121,9 @@ def cumulative_return(strategies):
     print("Graph printed -> 'Cumulative Returns'")
 
 def sharpe_graph(strategies, names):
+    '''
+        Plot and save a bar chart comparing the Sharpe ratio of each strategy.
+    '''
     sharpe = [Sharpe(g) for g, _, _ in strategies.values()]
     plt.figure(figsize=(10, 6))
     plt.bar(names, sharpe, color='steelblue')
@@ -91,6 +134,9 @@ def sharpe_graph(strategies, names):
     print("Graph printed -> 'Sharpe Ratio'")
 
 def sortino_graph(strategies, names):
+    '''
+        Plot and save a bar chart comparing the Sortino ratio of each strategy.
+    '''
     sortino = [Sortino(g) for g, _, _ in strategies.values()]
     plt.figure(figsize=(10, 6))
     plt.bar(names, sortino, color='seagreen')
@@ -101,6 +147,9 @@ def sortino_graph(strategies, names):
     print("Graph printed -> 'Sortino Ratio'")
 
 def max_drawdown_graph(strategies, names):
+    '''
+        Plot and save a bar chart comparing the Max Drawdown of each strategy.
+    '''
     mdd = [MaxDrawdown(g) for g, _, _ in strategies.values()]
     plt.figure(figsize=(10, 6))
     plt.bar(names, mdd, color='tomato')
@@ -110,6 +159,10 @@ def max_drawdown_graph(strategies, names):
     print("Graph printed -> 'Max Drawdown'")
 
 def GraphAndMetric(strategies):
+    '''
+        Print and save the benchmark metrics table (clean/baseline scenario,
+        no noise or shocks), then generate all associated summary graphs.
+    '''
     lines = []
     header = f"{'Strategy':<12} {'Return':>8} {'Return(10bps)':>14} {'Sharpe':>8} {'Sortino':>8} {'MaxDD':>8} {'Turnover':>10}"
     lines.append(header)
@@ -137,11 +190,22 @@ def GraphAndMetric(strategies):
 
 # --- Stress-test --- #
 def add_noise(data, std, seed=42):
+    '''
+        Inject Gaussian noise into the given data, used to test the
+        robustness of a model's predictions to corrupted input features.
+    '''
     rng = np.random.default_rng(seed)
     noise = rng.normal(0, std, size=data.shape)
     return data + noise
 
 def evaluate_drl(model, env):
+    '''
+        Run one full evaluation episode of the DRL agent on the given
+        environment, starting from step 24 and using deterministic actions.
+        Returns the portfolio returns, the sequence of actions taken, and
+        the underlying market (buy-and-hold) returns. Used on both
+        clean and noisy/shocked environments.
+    '''
     obs, _ = env.reset()
     env.current_step = 24
     portfolio, actions_list, market = [], [], []
@@ -158,6 +222,10 @@ def evaluate_drl(model, env):
     return np.array(portfolio), np.array(actions_list), np.array(market)
 
 def GraphAndMetric_noisy(stress_strategies):
+    '''
+        Print and save the metrics table for the noise stress-test scenario
+        (clean vs. noisy features), then generate the associated summary graphs.
+    '''
     lines = []
     header = f"{'Model':<14} {'Return':>8} {'Return(10bps)':>14} {'Sharpe':>8} {'Sortino':>8} {'MaxDD':>8} {'Turnover':>10}"
     lines.append(header)
@@ -173,7 +241,7 @@ def GraphAndMetric_noisy(stress_strategies):
     with open(os.path.join(FILE_SAVE_TLB, "stress_test_results.txt"), "w") as f:
         f.write(stress_output)
 
-    # --- Graph: cumulative returns clean vs noisy --- #
+    # Graph: cumulative returns clean vs noisy
     plt.figure(figsize=(12, 8))
     for name, (gross, _, _) in stress_strategies.items():
         plt.plot(np.cumsum(gross), label=name)
@@ -185,7 +253,7 @@ def GraphAndMetric_noisy(stress_strategies):
     plt.savefig(os.path.join(FILE_SAVE_IMG, "stress_test.png"))
     plt.close()
 
-    # --- Graph: illustration of noise on a single feature (zoomed) --- #
+    # Graph: illustration of noise on a single feature
     window_start, window_end = 1000, 1200
     plt.figure(figsize=(12, 4))
     plt.plot(test_all['SMA_20'].values[window_start:window_end], label='Clean (SMA_20)', alpha=0.8)
@@ -199,16 +267,33 @@ def GraphAndMetric_noisy(stress_strategies):
 
 # --- Volatility Shock Test --- #
 def apply_shock(returns, start, duration, shock_value=-0.05):
+    '''
+        Overwrite a window of returns with a fixed shock value, simulating
+        a sudden market move (e.g. a crash or a rally) over that window.
+    '''
     shocked = np.array(returns).copy()
     shocked[start:start+duration] = shock_value
     return shocked
 
 def adversarial_shock_value(actions, start, duration, magnitude=0.05):
-    # Find moment when the bot has a long position.
+    '''
+        Determine the direction of the shock so that it always works
+        against the position the model held during the window: a crash 
+        if the average position was long, or a rally if it was short. 
+        
+        This ensures the shock is adversarial rather than accidentally 
+        benefiting whichever position the model happened to hold.
+    '''
     avg_action = np.mean(actions[start:start+duration])
     return -magnitude if avg_action > 0 else magnitude
 
 def run_shock_test(actions, market_or_labels, shock_windows, magnitude=0.05):
+    '''
+        Apply an adversarial shock to each window in shock_windows (a list
+        of (start, duration, asset_name) tuples), and recompute the
+        resulting portfolio returns for that window. Returns a list of
+        (asset_name, start, duration, shocked_portfolio) tuples, one per window.
+    '''
     results = []
     for start, duration, asset_name in shock_windows:
         shock_val = adversarial_shock_value(actions, start, duration, magnitude)
@@ -218,6 +303,12 @@ def run_shock_test(actions, market_or_labels, shock_windows, magnitude=0.05):
     return results
 
 def GraphAndMetric_shock(shock_strategies, shock_windows):
+    '''
+        Print and save the metrics table for the volatility shock test
+        (clean vs. shocked performance for each model/asset window), then
+        plot cumulative returns for DRL and LSTM in separate subplots, with
+        the shock windows highlighted.
+    '''
     lines = []
     header = f"{'Model':<20} {'Return':>8} {'Return(10bps)':>14} {'Sharpe':>8} {'Sortino':>8} {'MaxDD':>8} {'Turnover':>10}"
     lines.append(header)
@@ -233,7 +324,7 @@ def GraphAndMetric_shock(shock_strategies, shock_windows):
     with open(os.path.join(FILE_SAVE_TLB, "shock_test_results.txt"), "w") as f:
         f.write(shock_output)
 
-    # --- Graph: split DRL vs LSTM --- #
+    # Graph: split DRL vs LSTM 
     fig, axes = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
 
     for name, (gross, _, _) in shock_strategies.items():
@@ -281,7 +372,6 @@ if __name__ == "__main__":
     drl_portfolio = []
     drl_actions = []
     drl_market = []
-    prev_action = 0.0
     done = False
 
     while not done:
