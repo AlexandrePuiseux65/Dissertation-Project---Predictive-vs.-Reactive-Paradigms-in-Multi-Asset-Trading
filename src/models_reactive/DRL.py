@@ -1,12 +1,13 @@
 '''
-    Code for the RL v1 model, also have the class fro the tranning of any LSTM model types.
+    Code for the DRL (PPO) trading agent: defines the multi-asset
+    TradingEnv (Gymnasium environment) and the data preparation
+    pipeline used for training and evaluation.
 '''
 # --- Lib --- #
 import pandas as pd
 import os
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
 import gymnasium
 from gymnasium import spaces
 from stable_baselines3 import PPO
@@ -19,7 +20,7 @@ FILE_PATH_CRYPTO_PROCESSED = os.path.join(BASE_DIR, "data", "processed", "crypto
 FILE_PATH_BONDS_PROCESSED  = os.path.join(BASE_DIR, "data", "processed", "bonds")
 
 FILE_SAVE_MODEL = os.path.join(BASE_DIR, "model")
-
+WINDOW_SIZE = 24
 FEATURE_COLS = ['open', 'high', 'low', 'volume', 'trade_count', 'vwap',
                 'SMA_20', 'SMA_50', 'RSI', 'MACD', 'MACD_signal', 'MACD_hist',
                 'BB_middle', 'BB_upper', 'BB_lower']
@@ -38,13 +39,13 @@ class TradingEnv(gymnasium.Env):
         self.close_prices = data['close'].values.astype(np.float32)
         self.features = data[ALL_COLS].values.astype(np.float32)
         self.n_steps  = len(self.features)
-        self.current_step = 24
+        self.current_step = WINDOW_SIZE
         self.returns_history = []
         
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf,
-            shape=(24 * len(ALL_COLS),),
+            shape=(WINDOW_SIZE * len(ALL_COLS),),
             dtype=np.float32
         )
 
@@ -55,7 +56,7 @@ class TradingEnv(gymnasium.Env):
             Returns the initial observation and an empty info dict.
         '''
         super().reset(seed=seed)
-        self.current_step = np.random.randint(24, self.n_steps // 2)
+        self.current_step = np.random.randint(WINDOW_SIZE, self.n_steps // 2)
         self.returns_history = []
         return self._get_observation(), {}
 
@@ -64,7 +65,7 @@ class TradingEnv(gymnasium.Env):
             Returns the current observation: a window of the last 24 timesteps
             of market features, shaped (24, n_features).
         '''
-        return self.features[self.current_step - 24:self.current_step].flatten()
+        return self.features[self.current_step - WINDOW_SIZE:self.current_step].flatten()
 
     def step(self, action):
         '''
@@ -72,12 +73,15 @@ class TradingEnv(gymnasium.Env):
             - Computes the log-return between current and next price
             - Scales it by the agent's position (action)
             - Returns (observation, reward, done, truncated, info)
+
+            Note: transaction costs are not modeled in this reward; they are
+            applied separately during evaluation (see benchmark.py).
         '''
         current_price = self.close_prices[self.current_step]
-        next_price    = self.close_prices[self.current_step + 1]
+        next_price = self.close_prices[self.current_step + 1]
 
-        log_return       = np.log(next_price / current_price)
-        reward           = action[0] * log_return
+        log_return = np.log(next_price / current_price)
+        reward = action[0] * log_return
 
         self.current_step += 1
         done = self.current_step >= self.n_steps - 1
@@ -123,6 +127,7 @@ if __name__ == "__main__":
     val_all = pd.concat([val_stocks, val_bonds, val_crypto]).reset_index(drop=True)
     val_env = TradingEnv(val_all)
 
+    # Sanity check: verify observation shape/NaNs and reward computation before training
     obs, info = env.reset()
     print("obs shape:", obs.shape)
     print("obs NaN:", np.isnan(obs).sum())
