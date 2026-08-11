@@ -191,3 +191,7 @@ if __name__ == "__main__":
     print(f"Stocks; {df.size}", df.columns)
     print(f"Crypto; {df_crypto.size}", df_crypto.columns)
     print(f"Bonds; {df_bonds.size}", df_bonds.columns)
+
+    print(f"Stocks len; {len(df)}", df.columns)
+    print(f"Crypto; {len(df_crypto)}",df_crypto.columns)
+    print(f"Bonds; {len(df_bonds)}",df_bonds.columns)

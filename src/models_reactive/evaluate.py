@@ -6,8 +6,10 @@ import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 
 # --- Global Variable --- #
-from DRL import PreparationData, TradingEnv, FILE_SAVE_MODEL, WINDOW_SIZE
+from DRL import PreparationData, TradingEnv, WINDOW_SIZE, BASE_DIR, FILE_SAVE_MODEL
 from DRL import FILE_PATH_STOCKS_PROCESSED, FILE_PATH_BONDS_PROCESSED, FILE_PATH_CRYPTO_PROCESSED
+
+FILE_SAVE_IMG = os.path.join(BASE_DIR, "src", "benchmark", "img", "DRL")
 
 # --- Function --- #
 def evaluation_DRL_Action(portfolio_returns, market_returns, actions):
@@ -32,7 +34,7 @@ def evaluation_DRL_Action(portfolio_returns, market_returns, actions):
     axes[2].set_title("Distribution of Actions")
 
     plt.tight_layout()
-    plt.savefig(os.path.join(FILE_SAVE_MODEL, "evaluation_DRL_Action.png"))
+    plt.savefig(os.path.join(FILE_SAVE_IMG, "evaluation_DRL_Action.png"))
 
     print(f"Action mean : {actions.mean():.4f}")
     print(f"% short (action < 0) : {(actions < 0).mean():.2%}")
@@ -54,7 +56,7 @@ def plot_training_evolution(model_dir):
     plt.xlabel("Timesteps")
     plt.ylabel("Mean reward (val set)")
     plt.tight_layout()
-    plt.savefig(os.path.join(model_dir, "training_evolution.png"))
+    plt.savefig(os.path.join(FILE_SAVE_IMG, "training_evolution.png"))
     plt.show()
 
 def max_drawdown(returns):
@@ -71,50 +73,53 @@ def sortino_ratio(returns, target=0.0):
     downside_std = np.sqrt(np.mean(downside**2)) + 1e-8
     return excess.mean()/downside_std
 
-# --- Main --- # 
+# --- Main --- #
 if __name__ == "__main__":
     # Preparation of the data
     train_stocks, val_stocks, test_stocks = PreparationData(FILE_PATH_STOCKS_PROCESSED, "AAPL.parquet", asset_type=0)
     train_bonds, val_bonds, test_bonds  = PreparationData(FILE_PATH_BONDS_PROCESSED,  "TLT.parquet",  asset_type=1)
     train_crypto, val_crypto, test_crypto = PreparationData(FILE_PATH_CRYPTO_PROCESSED, "BTC-USD.parquet", asset_type=2)
 
-    test_all = pd.concat([test_stocks, test_bonds, test_crypto]).reset_index(drop=True)
-    env = TradingEnv(test_all)
+    test_sets = [
+        ("AAPL", test_stocks),
+        ("TLT",  test_bonds),
+        ("BTC",  test_crypto),
+    ]
 
-    # Load the DRL model
-    model = PPO.load(os.path.join(FILE_SAVE_MODEL, "drl_v1_1M.zip"), env=env, device='cpu')
+    model = PPO.load(os.path.join(FILE_SAVE_MODEL, "drl_v3_best.zip"),
+                      env=TradingEnv(test_stocks), device='cpu')
 
-    # Run the evaluation loop over the test set
-    obs, _ = env.reset()
-    env.current_step = WINDOW_SIZE
-    rewards = []
-    actions = []
-    portfolio_returns = []
-    market_returns = []
-    net_returns = []
-    prev_action = 0.0
-    done = False
+    rewards, actions, portfolio_returns, market_returns, net_returns = [], [], [], [], []
 
-    while not done:
-        action, _ = model.predict(obs, deterministic=True)
-        
-        current_price = env.close_prices[env.current_step]
-        next_price    = env.close_prices[env.current_step + 1]
-        log_return    = np.log(next_price / current_price)
-        portfolio_return = action[0] * log_return
-        
-        # Transaction cost
-        position_change   = abs(action[0] - prev_action)
-        transaction_cost  = position_change * 0.001
-        net_return        = portfolio_return - transaction_cost
-        prev_action = action[0]
-        
-        obs, reward, done, trunc, info = env.step(action)
-        rewards.append(reward)
-        actions.append(action[0])
-        portfolio_returns.append(portfolio_return)
-        net_returns.append(net_return)
-        market_returns.append(log_return)
+    for name, test_df in test_sets:
+        env = TradingEnv(test_df)
+        obs, _ = env.reset()
+        env.current_step = WINDOW_SIZE
+        prev_action = 0.0  # reset position at the start of each asset
+        done = False
+
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+
+            current_price = env.close_prices[env.current_step]
+            next_price    = env.close_prices[env.current_step + 1]
+            log_return    = np.log(next_price / current_price)
+            portfolio_return = action[0] * log_return
+
+            # Transaction cost
+            position_change   = abs(action[0] - prev_action)
+            transaction_cost  = position_change * 0.001
+            net_return        = portfolio_return - transaction_cost
+            prev_action = action[0]
+
+            obs, reward, done, trunc, info = env.step(action)
+            rewards.append(reward)
+            actions.append(action[0])
+            portfolio_returns.append(portfolio_return)
+            net_returns.append(net_return)
+            market_returns.append(log_return)
+
+        print(f"{name}: evaluated {len(test_df) - WINDOW_SIZE} steps")
 
     evaluation_DRL_Action(portfolio_returns, market_returns, actions)
     plot_training_evolution(FILE_SAVE_MODEL)
