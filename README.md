@@ -1,10 +1,11 @@
-# Predictive vs. Reactive Paradigms in Multi-Asset Trading
+# Predictive vs. Reactive Paradigms Across Asset Classes
 *MSc Artificial Intelligence Dissertation — CS5099, University of St Andrews*
 
 ## Description
 
 This repository contains the implementation for my MSc dissertation
-*"Predictive vs. Reactive Paradigms in Multi-Asset Trading"*. It compares two trading paradigms across
+*"Predictive vs. Reactive Paradigms
+Across Asset Classes"*. It compares two trading paradigms across
 three asset classes (stocks, bonds, crypto): a predictive LSTM model
 trained to forecast log-returns from technical indicators, and a
 reactive Deep Reinforcement Learning agent (PPO) trained directly on
