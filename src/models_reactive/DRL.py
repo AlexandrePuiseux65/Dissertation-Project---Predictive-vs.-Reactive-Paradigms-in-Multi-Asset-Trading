@@ -138,7 +138,7 @@ if __name__ == "__main__":
     checkpoint_cb = CheckpointCallback(
         save_freq=10000,
         save_path=FILE_SAVE_MODEL,
-        name_prefix="drl_v1"
+        name_prefix="drl_v3"
     )
 
     model = PPO("MlpPolicy", env, verbose=1)
@@ -148,5 +148,5 @@ if __name__ == "__main__":
                        eval_freq=10000, verbose=1)
 
     model.learn(total_timesteps=1_000_000, reset_num_timesteps=True, callback=[checkpoint_cb, eval_cb])
-    model.save(os.path.join(FILE_SAVE_MODEL, "drl_v1"))
+    model.save(os.path.join(FILE_SAVE_MODEL, "drl_v3"))
     print("Model saved.")

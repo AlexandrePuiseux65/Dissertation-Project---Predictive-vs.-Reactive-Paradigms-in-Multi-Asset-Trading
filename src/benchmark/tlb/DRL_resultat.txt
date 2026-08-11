@@ -1,0 +1,24 @@
+AAPL: evaluated 992 steps
+TLT: evaluated 1085 steps
+BTC: evaluated 4350 steps
+Action mean : 0.3458
+% short (action < 0) : 19.75%
+% long (action > 0) : 80.25%
+
+--- Without costs ---
+Cumulative return  : -0.1441
+Sharpe ratio       : -0.0104
+Sortino ratio      : -0.0140
+Max Drawdown       : -0.2735
+
+--- With 10 bps ---
+Cumulative return  : -1.2099
+Sharpe ratio       : -0.0867
+Sortino ratio      : -0.1126
+Max Drawdown       : -1.2692
+
+--- Buy & Hold ---
+Cumulative return  : 0.1482
+Sharpe ratio       : 0.0056
+Sortino ratio      : 0.0079
+Max Drawdown       : -0.4292

@@ -1,0 +1,15 @@
+AAPL: evaluated 992 sequences
+TLT: evaluated 1085 sequences
+BTC: evaluated 4350 sequences
+
+--- LSTM Without costs ---
+Cumulative return : -0.0736
+Sharpe ratio : -0.0028
+Sortino ratio : -0.0039
+Max Drawdown : -0.4441
+
+--- LSTM With 10 bps ---
+Cumulative return : -0.0766
+Sharpe ratio : -0.0029
+Sortino ratio : -0.0041
+Max Drawdown : -0.4461
