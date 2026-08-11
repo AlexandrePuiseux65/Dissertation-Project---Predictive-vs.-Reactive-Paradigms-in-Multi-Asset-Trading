@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Predictive vs. Reactive Paradigms Across Asset Classes"
+authors:
+  - family-names: "Puiseux"
+    given-names: "Alexandre"
+date-released: 2026-08-11
+url: "https://github.com/AlexandrePuiseux65/Dissertation-Project---Predictive-vs.-Reactive-Paradigms-in-Multi-Asset-Trading.git"
+type: software
