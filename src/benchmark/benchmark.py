@@ -241,6 +241,31 @@ def momentum_strategy(market, window=WINDOW_SIZE):
     portfolio = actions * market
     return portfolio, actions
 
+def GraphAndMetric_per_asset(per_asset_drl, per_asset_lstm):
+    '''
+        Print and save a per-asset breakdown of the standard backtest
+        metrics for DRL and LSTM, complementing the aggregate table
+        produced by GraphAndMetric.
+    '''
+    lines = []
+    header = f"{'Model/Asset':<16} {'Return':>8} {'Return(10bps)':>14} {'Sharpe':>8} {'Sortino':>8} {'MaxDD':>8} {'Turnover':>10}"
+    lines.append(header)
+    lines.append("-" * 78)
+    for name, (gross, actions, market) in per_asset_drl.items():
+        net = ComputeNetReturns(gross, actions)
+        lines.append(f"{'DRL-' + name:<16} {CumulativeReturn(gross):>8.4f} {CumulativeReturn(net):>14.4f} "
+                      f"{Sharpe(gross):>8.4f} {Sortino(gross):>8.4f} {MaxDrawdown(gross):>8.4f} "
+                      f"{Turnover(actions):>10.4f}")
+    for name, (gross, actions, labels) in per_asset_lstm.items():
+        net = ComputeNetReturns(gross, actions)
+        lines.append(f"{'LSTM-' + name:<16} {CumulativeReturn(gross):>8.4f} {CumulativeReturn(net):>14.4f} "
+                      f"{Sharpe(gross):>8.4f} {Sortino(gross):>8.4f} {MaxDrawdown(gross):>8.4f} "
+                      f"{Turnover(actions):>10.4f}")
+    output = "\n".join(lines)
+    print(f"\n{output}")
+    with open(os.path.join(FILE_SAVE_TLB, "per_asset_results.txt"), "w") as f:
+        f.write(output)
+
 # --- Stress-test: noise injection --- #
 def add_noise(data, level, seed=42):
     '''
@@ -531,6 +556,7 @@ if __name__ == "__main__":
     }
 
     GraphAndMetric(strategies)
+    GraphAndMetric_per_asset(per_asset_drl, per_asset_lstm)
 
     # --- Stress-test: noise sweep --- #
     noise_results = noise_sweep(model_DRL, model_LSTM, device, drl_test_dfs, lstm_test_data)
