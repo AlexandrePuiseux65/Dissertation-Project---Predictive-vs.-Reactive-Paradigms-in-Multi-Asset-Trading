@@ -29,7 +29,7 @@ def LoadModel():
 # --- Prepare test data --- #
 def PrepareTestData(FILE_STOCKS, FILE_BONDS, FILE_CRYPTO):
     '''
-        FIX: returns a list of (asset_name, test_seqs, test_labels) instead
+        Returns a list of (asset_name, test_seqs, test_labels) instead
         of one concatenated tensor pair, so that evaluation and net-return
         computation can be done per asset (position resets between assets).
     '''
@@ -98,9 +98,6 @@ if __name__ == "__main__":
         actions           = torch.sign(y_pred).numpy()
         portfolio_returns = actions * test_labels.numpy()
         market_returns    = test_labels.numpy()
-
-        # FIX: reset position at the start of each asset instead of
-        # carrying prev_action over from the previous asset's last step.
         net_returns = []
         prev_action = 0.0
         for i, act in enumerate(actions):
